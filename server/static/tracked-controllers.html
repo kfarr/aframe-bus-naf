@@ -8,11 +8,6 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/1.4.5/socket.io.min.js"></script>
     <script src="/easyrtc/easyrtc.js"></script>
     <script src="/build.js"></script>
-    <script>window.NAF || document.write('<script src="https://unpkg.com/networked-aframe/dist/networked-aframe.min.js">\x3C/script>')</script>
-
-    <script src="https://unpkg.com/aframe-randomizer-components@^3.0.1/dist/aframe-randomizer-components.min.js"></script>
-    <script src="https://unpkg.com/aframe-particle-system-component@1.0.5/dist/aframe-particle-system-component.min.js"></script>
-    <script src="/js/spawn-in-circle.component.js"></script>
 
     <script src="https://cdn.jsdelivr.net/gh/mayognaise/aframe-gif-shader/dist/aframe-gif-shader.min.js"></script>
     <script src="https://unpkg.com/aframe-environment-component@2.0.0/dist/aframe-environment-component.min.js"></script>
@@ -289,7 +284,7 @@
                  animation__mouseenter="property: components.material.material.color; type: color; from: #111; to: #FFF; dur: 200; startEvents: mouseenter"
                  animation__mouseleave="property: components.material.material.color; type: color; from: #FFF; to: #111; dur: 200; startEvents: mouseleave"></a-mixin>
 
-        <!-- Bus Template -->
+        <!-- Bus Template - NAF style template -->
         <template id="bus1-template">
           <a-entity class="bus-class">
             <a-plane class="bus-front" src="url(images/bus-front.png)" material="alphaTest: 0.5;" position="0 0.181 5.979" rotation="-8 0 0" width="2.59" height="2.7186" shadow="receive:false"></a-plane>
@@ -326,16 +321,7 @@
         <!-- /Templates -->
       </a-assets>
 
-
-      <a-mixin id="bounce"
-      animation__1="property: object3D.rotation.z; easing: linear; from: -45; to: 45; dir: alternate; dur: 500; loop: true"
-      animation__2="property: object3D.position.y; easing: linear; from: 0.2; to: 1; dir: alternate; dur: 250; loop: true"></a-mixin>
-      <a-mixin id="peep1" scale="0.1 0.1 0.1" obj-model="obj: url(models/city-builder-obj/chr_worker1.obj); mtl: url(models/city-builder-obj/chr_worker1.mtl)"></a-mixin>
-      <a-mixin id="peep2" scale="0.1 0.1 0.1" obj-model="obj: url(models/city-builder-obj/chr_worker2.obj); mtl: url(models/city-builder-obj/chr_worker2.mtl)"></a-mixin>
-      <a-mixin id="peep3" scale="0.1 0.1 0.1" obj-model="obj: url(models/city-builder-obj/chr_worker3.obj); mtl: url(models/city-builder-obj/chr_worker3.mtl)"></a-mixin>
-
       <a-sky src="#sky" rotation="0 -90 0"></a-sky>
-      <a-entity id="particles" particle-system="preset: snow"></a-entity>
       <!-- Menu container. -->
       <a-entity id="menu" position="-1.2 0.63 0.1" visible="" rotation="0 90 0" scale="0.25 0.25 0.25">
         <a-entity id="menuBackground" mixin="slice" slice9="height: 3; width: 5.3333" render-order="menuBackground"></a-entity>
@@ -400,12 +386,13 @@
 
       <!-- Mouse cursor so we can click on the scene with mouse or touch. -->
       <a-entity id="mouseCursor" cursor="rayOrigin: mouse" raycaster="objects: [raycastable]"></a-entity>
-
+      <a-entity id="leftHand" laser-controls="hand: left" raycaster="objects: [raycastable]"></a-entity>
+      <a-entity id="rightHand" laser-controls="hand: right" raycaster="objects: [raycastable]"></a-entity>
 
       <!-- Bus1 Entity including tracker controller -->
       <!-- <a-entity id="bus1-controller" tracked-controls="idPrefix: OpenVR; controller: 2; orientationOffset:-90 180 0" position-log> -->
 
-      <a-entity id="rig" position="0.5 1 1.5" >
+      <a-entity id="rig" position="0 0 0" >
         <a-entity id="camera" camera look-controls></a-entity>
       </a-entity>
       <a-entity id="bus1-controller" position="0 0 0">
@@ -547,13 +534,6 @@
     </style>
 
     <script>
-      // On mobile remove elements that are resource heavy
-      var isMobile = AFRAME.utils.device.isMobile();
-
-      if (isMobile) {
-        var particles = document.getElementById('particles');
-        particles.parentNode.removeChild(particles);
-      }
 
       NAF.schemas.add({
         template: '#bus1-template',
@@ -562,6 +542,19 @@
           'position',
           'rotation',
         ]
+      });
+      function makeVR() {
+        // add tracked controller to above thing
+        //    tracked-controls="idPrefix: OpenVR; controller: 2; orientationOffset:-90 180 0"
+        var controllerEl = document.querySelector("#bus1-controller");
+        controllerEl.setAttribute("tracked-controls", "idPrefix: OpenVR; orientationOffset:-90 0 0");
+        controllerEl.setAttribute("bind__tracked-controls", "controller: bus1ControllerId");
+        document.querySelector("#tracker-model").setAttribute("visible", "true");
+      }
+
+      document.querySelector('a-scene').addEventListener('enter-vr', function () {
+         console.log("ENTERED VR");
+         makeVR();
       });
 
     </script>

@@ -1,4 +1,4 @@
-(function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
+(function(){function r(e,n,t){function o(i,f){if(!n[i]){if(!e[i]){var c="function"==typeof require&&require;if(!f&&c)return c(i,!0);if(u)return u(i,!0);var a=new Error("Cannot find module '"+i+"'");throw a.code="MODULE_NOT_FOUND",a}var p=n[i]={exports:{}};e[i][0].call(p.exports,function(r){var n=e[i][1][r];return o(n||r)},p,p.exports,r,e,n,t)}return n[i].exports}for(var u="function"==typeof require&&require,i=0;i<t.length;i++)o(t[i]);return o}return r})()({1:[function(require,module,exports){
 "use strict";
 
 var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
@@ -14,6 +14,31 @@ var PLAYING = 2;
 var MODE_LERP = 0;
 var MODE_HERMITE = 1;
 
+var vectorPool = [];
+var quatPool = [];
+var framePool = [];
+
+var getPooledVector = function getPooledVector() {
+  return vectorPool.shift() || new THREE.Vector3();
+};
+var getPooledQuaternion = function getPooledQuaternion() {
+  return quatPool.shift() || new THREE.Quaternion();
+};
+
+var getPooledFrame = function getPooledFrame() {
+  var frame = framePool.pop();
+
+  if (!frame) {
+    frame = { position: new THREE.Vector3(), velocity: new THREE.Vector3(), scale: new THREE.Vector3(), quaternion: new THREE.Quaternion(), time: 0 };
+  }
+
+  return frame;
+};
+
+var freeFrame = function freeFrame(f) {
+  return framePool.push(f);
+};
+
 var InterpolationBuffer = function () {
   function InterpolationBuffer() {
     var mode = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : MODE_LERP;
@@ -27,13 +52,7 @@ var InterpolationBuffer = function () {
     this.time = 0;
     this.mode = mode;
 
-    this.originFrame = {
-      position: new THREE.Vector3(),
-      velocity: new THREE.Vector3(),
-      quaternion: new THREE.Quaternion(),
-      scale: new THREE.Vector3(1, 1, 1)
-    };
-
+    this.originFrame = getPooledFrame();
     this.position = new THREE.Vector3();
     this.quaternion = new THREE.Quaternion();
     this.scale = new THREE.Vector3(1, 1, 1);
@@ -65,6 +84,12 @@ var InterpolationBuffer = function () {
       THREE.Quaternion.slerp(r1, r2, target, alpha);
     }
   }, {
+    key: "updateOriginFrameToBufferTail",
+    value: function updateOriginFrameToBufferTail() {
+      freeFrame(this.originFrame);
+      this.originFrame = this.buffer.shift();
+    }
+  }, {
     key: "appendBuffer",
     value: function appendBuffer(position, velocity, quaternion, scale) {
       var tail = this.buffer.length > 0 ? this.buffer[this.buffer.length - 1] : null;
@@ -87,13 +112,14 @@ var InterpolationBuffer = function () {
         }
       } else {
         var priorFrame = tail || this.originFrame;
-        this.buffer.push({
-          position: position ? position.clone() : priorFrame.position.clone(),
-          velocity: velocity ? velocity.clone() : priorFrame.velocity.clone(),
-          quaternion: quaternion ? quaternion.clone() : priorFrame.quaternion.clone(),
-          scale: scale ? scale.clone() : priorFrame.scale.clone(),
-          time: this.time
-        });
+        var newFrame = getPooledFrame();
+        newFrame.position.copy(position || priorFrame.position);
+        newFrame.velocity.copy(velocity || priorFrame.velocity);
+        newFrame.quaternion.copy(quaternion || priorFrame.quaternion);
+        newFrame.scale.copy(scale || priorFrame.scale);
+        newFrame.time = this.time;
+
+        this.buffer.push(newFrame);
       }
     }
   }, {
@@ -121,7 +147,7 @@ var InterpolationBuffer = function () {
     value: function update(delta) {
       if (this.state === INITIALIZING) {
         if (this.buffer.length > 0) {
-          this.originFrame = this.buffer.shift();
+          this.updateOriginFrameToBufferTail();
           this.position.copy(this.originFrame.position);
           this.quaternion.copy(this.originFrame.quaternion);
           this.scale.copy(this.originFrame.scale);
@@ -141,7 +167,7 @@ var InterpolationBuffer = function () {
         while (this.buffer.length > 0 && mark > this.buffer[0].time) {
           //if this is the last frame in the buffer, just update the time and reuse it
           if (this.buffer.length > 1) {
-            this.originFrame = this.buffer.shift();
+            this.updateOriginFrameToBufferTail();
           } else {
             this.originFrame.position.copy(this.buffer[0].position);
             this.originFrame.velocity.copy(this.buffer[0].velocity);
